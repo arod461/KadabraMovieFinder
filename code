@@ -1,0 +1,161 @@
+%pip install ipywidgets
+%pip install pandas
+
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+import ipywidgets as widgets #widgets
+from ipywidgets import Button, HBox, VBox, Layout #layout
+from IPython.display import display #displays
+
+import matplotlib.pyplot as plt
+
+df= pd.read_csv('netfix_cleaned.csv') #import csv file aka the data
+df # displays the DataFrame
+#Import TfIdfVectorizer from scikit-learn
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+#removes all english stop words
+tfidf = TfidfVectorizer(stop_words='english')
+
+#creates matrix by fitting and transforming the data
+tfidf_matrix = tfidf.fit_transform(df['description'])
+
+#shape of tfidf_matrix
+tfidf_matrix.shape
+
+# Import linear_kernel
+from sklearn.metrics.pairwise import linear_kernel
+
+# cosine similarity matrix
+cosine_sim = linear_kernel(tfidf_matrix, tfidf_matrix)
+
+#reverse map of indices and movie titles
+indices = pd.Series(df.index, index=df['names']).drop_duplicates()
+
+#takes in movie title as input and outputs most similar movies
+def get_recommendations(title, cosine_sim=cosine_sim):
+    # Get the index of the movie that matches the title
+    idx = indices[title]
+
+    # Get the pairwsie similarity scores of all movies with that movie
+    sim_scores = list(enumerate(cosine_sim[idx]))
+
+    # Sort the movies based on the similarity scores
+    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+
+    # Get the scores of the 10 most similar movies
+    sim_scores = sim_scores[1:11]
+
+    # Get the movie indices
+    movie_indices = [i[0] for i in sim_scores]
+
+    # Return the top 10 most similar movies
+    return df['names'].iloc[movie_indices]
+
+genres= df['genre'].tolist() #takes genres from the csv and puts them in a list
+
+#takes list of genres from each movie and creates one list
+genre_options = []
+for inner_list in genres:
+    new_element=inner_list.split(",")
+    genre_options+=new_element
+
+#takes list of all genres just created and finds just the unique values
+unique_genre = []
+for element in genre_options:
+    if element not in unique_genre:
+        unique_genre.append(element)
+
+#creates dropdown widget of the unique genres listed in the data
+genre_rb= widgets.Dropdown(
+    value='Spy',
+    options=unique_genre,
+    layout= Layout(align_items= 'center', width='250px', vertical_align= 'middle'),
+    disabled=False
+)
+
+# layout formatting for widgets
+item_layout=Layout(display='flex', flex_flow='column',
+                   border='solid 1px', align_items= 'center',
+                   width='250ox', height='auto',
+                   padding= '2px', vertical_align= 'middle')
+
+# creates a list of movie titles
+names= df['names'].tolist()
+
+#combobox for movie titles, allows user to start typing a movie and select the title
+movie_cb= widgets.Combobox(
+    placeholder='Start typing for suggestions',
+    options= names,
+    description='Enter a movie name:',
+    ensure_option=True,
+    disabled=False,
+    layout= Layout(display='flex', flex_flow='column', align_items= 'center',
+                   width='250px', height='auto', 
+                   padding= '10px', vertical_align= 'middle', border='hidden'),
+    style={'description_width': 'initial'})
+
+
+#Label widgets for title of app and genre widget
+title1= widgets.Label(value= 'Kadabra', font_weight= 'bold', 
+                     layout=Layout(display='flex', flex_flow='column', border='dashed 2px', align_items= 'center',
+                                   width='250px', height='auto', padding= '25px', vertical_align= 'middle'), background_color='#7b88db')
+title2= widgets.Label(value= 'Movie', font_weight= 'bold', 
+                     layout=Layout(display='flex', flex_flow='column', border='dashed 2px', align_items= 'center',
+                                   width='250px', height='auto', padding= '25px', vertical_align= 'middle'), background_color='#7b88db')
+title3= widgets.Label(value= 'Finder', font_weight= 'bold', 
+                     layout=Layout(display='flex', flex_flow='column', border='dashed 2px', align_items= 'center',
+                                   width='250px', height='auto', padding= '25px', vertical_align= 'middle'), background_color='#7b88db')
+title_genre= widgets.Label(value= 'Movie Genres', font_weight= 'bold',
+                           layout=Layout(display='flex', flex_flow='column', align_items= 'center', 
+                                         height='auto', width='250px', padding= '5px', vertical_align= 'middle'), background_color='#7b88db')
+
+# button to run recommender
+button=widgets.Button(description='Find A Movie')
+                      #layout=item_layout, border='solid 2px', 
+                      #positioning='center', align_items = 'center', vertical_align= 'middle')
+
+# empty label to create space, better presentation
+empty_label_small= widgets.Label(value= '', font_weight= 'bold', layout=Layout(display='flex', flex_flow='column', align_items= 'center',
+                                                                         width='5px', height='auto', padding= '2px', vertical_align= 'middle'))
+
+empty_label_large= widgets.Label(value= '', font_weight= 'bold', layout=Layout(display='flex', flex_flow='column', align_items= 'center',
+                                                                         width='5px', height='auto', padding= '40px', vertical_align= 'middle'))
+
+# widget that displays output when button is pressed
+output = widgets.Output()
+
+# action when button is presed
+def on_button_clicked(b):
+    #values from dropdown and combobox are gathered
+    g= genre_rb.value
+    m= movie_cb.value
+    #get recommendation function is called with the value from the combobox
+    x= get_recommendations(m)
+    unique_rec = []
+
+    #checks for unique values of recommended movies
+    for element in x:
+        if element not in unique_rec:
+                unique_rec.append(element)
+    #output is cleared then recommended movies are outputted
+    with output:
+        #output.clear_output()
+        print('hi')
+        print(unique_rec, g, m)
+        
+button.on_click(on_button_clicked)
+
+# widget box for radio buttons
+left_box= widgets.VBox([title1,movie_cb,empty_label_small])
+# widget box for combo box and button
+right_box= widgets.VBox([title2,empty_label_small, title_genre, genre_rb, 
+                         empty_label_small, empty_label_small, empty_label_small, empty_label_small, button])
+# empty widget box for space
+center_box= widgets.VBox([empty_label_small])
+
+# widget box for recommendations
+far_right_box= widgets.VBox([title3, output])
+
+# widget box to hold other boxes
+widgets.Box([left_box, right_box, far_right_box])
